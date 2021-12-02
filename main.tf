@@ -12,15 +12,20 @@ variable "ingressrules" {
 resource "aws_security_group" "web_traffic" {
   name        = "Allow web traffic"
   description = "inbound ports for ssh and standard http and everything outbound"
-  dynamic "ingress" {iterator = port
-    for_each = var.ingressrules
-    content {
-      from_port   = port.value
-      to_port     = port.value
+  # dynamic "ingress" { #iterator = port
+  #   for_each = var.ingressrules
+    ingress{#content {
+      from_port   = 0
+      to_port     = 8080
       protocol    = "TCP"
       cidr_blocks = ["0.0.0.0/0"]
     }
-  }
+    ingress {
+    from_port               = 22
+    to_port                 = 22
+    protocol                = "tcp"
+    }
+  
   egress {
     from_port   = 0
     to_port     = 0
@@ -56,17 +61,18 @@ resource "aws_instance" "jenkins" {
   ami             = data.aws_ami.redhat.id
   instance_type   = "t2.micro"
   security_groups = [aws_security_group.web_traffic.name]
-  key_name        = "app-demo-key.pem"
+  key_name        = "app-demo-key"
 
 
 
 provisioner "remote-exec"  {
     inline  = [
+      "sudo yum install https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm",
       "sudo yum install -y jenkins java-11-openjdk-devel",
       "sudo yum -y install wget",
-      "sudo wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo",
-      "sudo rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key",
-      "sudo yum upgrade -y",
+      "sudo wget -O /etc/yum.repos.d/jenkins.repo http://pkg.jenkins-ci.org/redhat-stable/jenkins.repo",
+      "sudo rpm --import https://jenkins-ci.org/redhat/jenkins-ci.org.key",
+      "sudo yum upgrade && update -y",
       "sudo yum install jenkins -y",
       "sudo systemctl start jenkins",
       ]
@@ -75,7 +81,7 @@ provisioner "remote-exec"  {
     type         = "ssh"
     host         = self.public_ip
     user         = "ec2-user"
-    private_key  = file("color:#CE9178">"~/keys/app-demo-key.pem" )
+    private_key  = "${file("/home/uladzimir/keys/app-demo-key.pem")}"
    }
   tags  = {
     "Name"      = "Jenkins"
